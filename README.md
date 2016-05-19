@@ -1,10 +1,6 @@
-# ng2-basic-starter
+# ng2-web-storage
 
-Basic skeleton project for Angular2 projects
-
-Uses:
-- Typescript
-- SystemJS
+Simple project for implementing various Web storage technologies (lcoalstorage, indexeddb, etc...)
 
 ## installation
 
@@ -13,14 +9,3 @@ Uses:
 ## start
 
 `npm run start`
-
-## testing
-
-`npm run start`
-
-## Variations
-- Master - No UI toolkit
-- Bootstrap - Bootstrap + FontAwesome
-- Material - Material Design 
-
-[Material](/aheinrich/angular2-basic-starter/tree/material)
