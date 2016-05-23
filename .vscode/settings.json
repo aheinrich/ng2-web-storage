@@ -4,5 +4,5 @@
         "**/.git": true,
         "**/*.js": { "when": "$(basename).ts"}    
     },
-    "files.autoSave": "off"
+    "files.autoSave": "onFocusChange"
 }

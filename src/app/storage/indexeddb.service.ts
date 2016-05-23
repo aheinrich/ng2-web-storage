@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Observable, Subscriber, Subject } from 'rxjs/Rx'
 
 interface Datastore {
     insert(): void;
@@ -9,6 +10,25 @@ interface Datastore {
 
 type ETransactionMode = "readwrite" | "readonly" | "versionchange"
 
+const IDB_EVENT_UPGRADE = "upgradeneeded"
+const IDB_EVENT_COMPLETE = "complete"
+const IDB_EVENT_ABORT = "abort"
+const IDB_EVENT_SUCCESS = "success"
+const IDB_EVENT_ERROR = "error"
+const IDB_EVENT_BLOCKED = "blocked"
+const IDB_EVENT_VERSIONCHANGE = "versionchange"
+const IDB_EVENT_CLOSE = "close"
+
+const IDB_EVENTS = [
+    IDB_EVENT_UPGRADE,
+    IDB_EVENT_COMPLETE,
+    IDB_EVENT_ABORT,
+    IDB_EVENT_SUCCESS,
+    IDB_EVENT_ERROR,
+    IDB_EVENT_BLOCKED,
+    IDB_EVENT_VERSIONCHANGE,
+    IDB_EVENT_CLOSE
+]
 
 export interface IDBSchemaDeclaration {
     name: string,
@@ -16,32 +36,89 @@ export interface IDBSchemaDeclaration {
     keyGenerator?: any
 }
 
+export interface IDBService {
+    dbName:string;
+    dbVersion:number;
+    schema: Array<IDBSchemaDeclaration>;
+}
+
 
 @Injectable()
 export class IndexedDbService {
 
-    databaseHandle: IDBDatabase;
+    eventStream: Subject<any>;
 
-    constructor() { }
-    
-    setupHandlers(){
-        console.log("Setting up database object handlers...")
-        this.databaseHandle.onabort = (event) => this._handleEvent(event)
-        this.databaseHandle.onerror = (event) => this._handleEvent(event)
-        this.databaseHandle.onclose = (event) => this._handleEvent(event)
-        this.databaseHandle.onversionchange = (event) => this._handleEvent(event)
+    constructor() {
+        console.log("Service is available!")
+        this.eventStream = new Subject()
+        this.eventStream.subscribe(
+            (event) => { },
+            (error) => { },
+            () => { }
+        )
     }
 
-    createDatabase(databaseName: string, version: number, schema: IDBSchemaDeclaration[]) {
-        console.log(`Creating schema...`)
-        return Promise.all(schema.map((schemaInstance: IDBSchemaDeclaration) => {
-            return this.createSchema(this.databaseHandle, schemaInstance)
-        }))
+    get events() {
+        return this.eventStream.asObservable()
     }
 
-    createSchema(db: IDBDatabase, schemaInstance: IDBSchemaDeclaration) {
-        return new Promise((resolve, reject) => {
-            console.log(`Creating Objectstore '${schemaInstance.name}'...`)
+    dropDatabase(databaseName: string) {
+        return Observable.create( (observer:Subscriber<any>) => {
+            let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
+            
+            var handleSuccess = (event: Event) => {
+                if (event.oldVersion > 0){
+                    observer.next()
+                    observer.complete()    
+                } else {
+                    observer.error(`Cannot find requested database '${databaseName}'`)
+                }
+            }
+            var handleError = (event: Event) => {
+                observer.error(deleteRequest.error)
+            }
+            var handleBlocked = (event: Event) => {
+                observer.error(`Requested database '${databaseName}' is blocked`)
+            }
+
+            deleteRequest.addEventListener(IDB_EVENT_SUCCESS, handleSuccess)
+            deleteRequest.addEventListener(IDB_EVENT_ERROR, handleError)
+            deleteRequest.addEventListener(IDB_EVENT_BLOCKED, handleBlocked)
+            return () => {
+                deleteRequest.removeEventListener(IDB_EVENT_SUCCESS, handleSuccess)
+                deleteRequest.removeEventListener(IDB_EVENT_ERROR, handleError)
+                deleteRequest.removeEventListener(IDB_EVENT_BLOCKED, handleBlocked)
+            }
+        })
+    }
+
+    openDatabase(databaseName: string, version: number, schema?: Array<IDBSchemaDeclaration>) {
+        return Observable.create((observer: Subscriber<any>) => {
+            var openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
+            var handleSuccess = (event: Event) => {
+                observer.next(event.target.result)
+            }
+            var handleError = (event: Event) => {
+                observer.error(openRequest.error)
+            }
+            var handleUpgrade = (event: Event) => {
+                this.upgradeDatabase(observer, event.target.result, schema)
+            }
+
+            openRequest.addEventListener(IDB_EVENT_SUCCESS, handleSuccess)
+            openRequest.addEventListener(IDB_EVENT_ERROR, handleError)
+            openRequest.addEventListener(IDB_EVENT_UPGRADE, handleUpgrade)
+            return () => {
+                openRequest.removeEventListener(IDB_EVENT_SUCCESS, handleSuccess)
+                openRequest.removeEventListener(IDB_EVENT_ERROR, handleError)
+                openRequest.removeEventListener(IDB_EVENT_UPGRADE, handleUpgrade)
+            }
+        })
+    }
+
+    upgradeDatabase(observer: Subscriber<any>, database: IDBDatabase, schema: Array<IDBSchemaDeclaration>) {
+
+        schema.forEach(schemaInstance => {
             let optionParams: IDBObjectStoreParameters = {}
 
             if (schemaInstance.keyPath) {
@@ -51,251 +128,35 @@ export class IndexedDbService {
             if (schemaInstance.keyGenerator) {
                 optionParams['keyGenerator'] = schemaInstance.keyGenerator
             }
-            let store: IDBObjectStore = db.createObjectStore(schemaInstance.name, optionParams);
-
-            store.transaction.oncomplete = (event) => {
-                console.log(`Transaction completed, all schemes created`)
-                resolve()
-            }
-
-            store.transaction.onerror = (event) => {
-                reject(store.transaction.error)
-            }
+            let store: IDBObjectStore = database.createObjectStore(schemaInstance.name, optionParams);
         })
-    }
-
-    dropDatabase(databaseName: string) {
-        return new Promise((resolve, reject) => {
-            let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
-
-            deleteRequest.onerror = (event) => {
-                reject(event)
-            }
-
-            deleteRequest.onsuccess = (event) => {
-                resolve(true)
-            }
-
-            deleteRequest.onblocked = (event) => {
-                console.log(`OpenDbRequest blocked`)
-                reject()
-            }
-
-        })
-
-    }
-
-    open(databaseName: string, version: number) {
-        let openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
-
-        openRequest.onerror = (event) => {
-            console.log(`OpenDbRequest error`)
-        }
-
-        openRequest.onsuccess = (event) => {
-            console.log(`OpenDbRequest success`)
-            this.databaseHandle = event.target.result
-            this.setupHandlers()
-        }
-
-        openRequest.onupgradeneeded = (event) => {
-            console.log(`OpenDbRequest upgrade needed`)
-        }
-
-        openRequest.onblocked = (event) => {
-            console.log(`OpenDbRequest blocked`)
-        }
-    }
-    
-    close() {
-        this.databaseHandle.close()
-    }
-    
-    _handleEvent(event:any){
-        console.log(`Handling event....`)
-        console.log(event)
+        observer.next(database)
+        observer.complete()
     }
     
     /**
-     * 
+     * When observables don't do what I expect them to do...
      */
-    getDatabaseInstance(databaseName: string, version: number) {
-        return new Promise((resolve, reject) => {
-            let openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
-
-            openRequest.onerror = (event) => {
-                console.log(`OpenDbRequest error`)
-                console.log(openRequest.error)
-                reject(openRequest.error)
-            }
-
-            openRequest.onsuccess = (event) => {
-                console.log(`OpenDbRequest success`)
-
-                // let db:IDBDatabase = event.target.result
-                // db.addEventListener("upgradeneeded", () => console.log(`Database Event : UpgradeNeeded`))
-                // db.addEventListener("complete", () => console.log(`Database Event : Complete`))
-                // db.addEventListener("abort", () => console.log(`Database Event : Abort`))
-                // db.addEventListener("success", () => console.log(`Database Event : Success`))
-                // db.addEventListener("error", () => console.log(`Database Event : Error`))
-                // db.addEventListener("blocked", () => console.log(`Database Event : Blocked`))
-                // db.addEventListener("versionchange", () => console.log(`Database Event : Version Change`))
-                // db.addEventListener("close", () => console.log(`Database Event : Close`))
-
-                resolve(event.target.result);
-            }
-
-            openRequest.onupgradeneeded = (event) => {
-                console.log(`OpenDbRequest upgrade needed`)
-                resolve(event.target.result);
-            }
-
-            openRequest.onblocked = (event) => {
-                console.log(`OpenDbRequest blocked`)
-                reject()
-            }
-        })
-    }
-
-    /**
-     * Transactions will remain active as long as there are pending Requests
-     */
-    getTransaction(db: IDBDatabase, objectStoreNames: string[] | string, mode: ETransactionMode): IDBTransaction {
-        var tnx: IDBTransaction = db.transaction(objectStoreNames, mode)
-        console.log(`Transaction Created`)
-
-        tnx.onabort = (event) => {
-            console.log(`Transaction aborted`)
+    hardDrop(databaseName: string) {
+        let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
+        
+        deleteRequest.onsuccess = (e:Event) => {
+            console.log("Success")
+            console.log(e);
         }
-
-        tnx.onerror = (event) => {
-            console.log(`Transaction error`)
+        deleteRequest.onblocked = (e:Event) => {
+            console.log("Blocked")
+            console.log(e);
         }
-
-        tnx.oncomplete = (event) => {
-            console.log(`Transaction complete`)
+        deleteRequest.onerror = (e:Event) => {
+            console.log("Error")
+            console.log(e);
         }
-
-        return tnx
-    }
-
-    /**
-     * 
-     */
-    getObjectStore(tnx: IDBTransaction, objectStoreName: string): IDBObjectStore {
-        var store = tnx.objectStore(objectStoreName)
-        console.log(`ObjectStore Available`)
-
-        return store
-    }
-
-    /**
-     * 
-     */
-    insert(db: IDBDatabase, storeName: string, record: any) {
-        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
-        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-        let addRequest: IDBRequest = store.add(record);
-
-        addRequest.onsuccess = (event: any) => {
-            console.log("AddRequest success")
-        }
-
-        addRequest.onerror = (event: any) => {
-            console.log("AddRequest error")
+        deleteRequest.onupgradeneeded = (e:Event) => {
+            console.log("Upgrade Needed")
+            console.log(e);
         }
     }
 
-    /**
-     * 
-     */
-    remove(db: IDBDatabase, storeName: string, key: string) {
-        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
-        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-        let deleteRequest: IDBRequest = store.delete(key);
 
-        deleteRequest.onsuccess = (event: any) => {
-            console.log("DeleteRequest success")
-        }
-
-        deleteRequest.onerror = (event: any) => {
-            console.log("DeleteRequest error")
-        }
-
-    }
-
-    /**
-     * 
-     */
-    retrieve(db: IDBDatabase, storeName: string, key: string) {
-        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readonly")
-        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-        let getRequest: IDBRequest = store.get(key);
-
-        getRequest.onsuccess = (event: any) => {
-            console.log("GetRequest success")
-        }
-
-        getRequest.onerror = (event: any) => {
-            console.log("GetRequest error")
-        }
-    }
-
-    /**
-     * 
-     */
-    update(db: IDBDatabase, storeName: string, key: string, updateFunction: (data: any) => void) {
-        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
-        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-        let getRequest: IDBRequest = store.get(key);
-
-        getRequest.onsuccess = (event: any) => {
-            console.log("GetRequest success")
-            var oldRecord = getRequest.result;
-            var newRecord = updateFunction(oldRecord)
-            var putRequest = store.put(newRecord);
-
-            putRequest.onsuccess = (event: any) => {
-                console.log("PutRequest success")
-            }
-
-            putRequest.onerror = (event: any) => {
-                console.log("PutRequest error")
-            }
-
-        }
-
-        getRequest.onerror = (event: any) => {
-            console.log("GetRequest error")
-        }
-    }
-
-    /**
-     * 
-     */
-
-    listAll(db: IDBDatabase, storeName: string) {
-        return new Promise((resolve, reject) => {
-            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
-            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-
-            let cursor: IDBRequest = store.openCursor()
-            let results: Array<any> = []
-
-            cursor.onsuccess = (event: any) => {
-
-                let iterator: IDBCursorWithValue = event.target.result;
-                if (iterator) {
-                    results.push(iterator.value);
-                    iterator.continue();
-                } else {
-                    resolve(results)
-                }
-            }
-
-            cursor.onerror = (event: any) => {
-                reject(event)
-            }
-        })
-    }
 }

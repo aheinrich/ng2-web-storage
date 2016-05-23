@@ -1,12 +1,16 @@
-<h1>Web Storage</h1>
+<h1>Web Storage Demo</h1>
 
-<ul>
-    <li>
-        <button (click)="doOpen()">Open</button>
-        <button (click)="doCreate()">Create database</button>
-        <button (click)="doClose()">Close</button>
-        <button (click)="doDestroy()">Remove database</button>
-    </li>
-</ul>
-    
-<router-outlet></router-outlet>    
+<button (click)="doAlerts()">Toggle 'Alerts' Component</button>
+<button (click)="doCustomers()">Toggle 'Customers' Component</button>
+
+<hr>
+
+<button (click)="doDropDb('Alerts')"> Drop Alerts</button>
+<button (click)="doDropDb('Customers')"> Drop Customers</button>
+<button (click)="doDropDb('Dummy')"> Drop Dummy</button>
+
+<hr>
+
+<alerts *ngIf="alerts"></alerts>
+
+<customers *ngIf="customers"></customers>

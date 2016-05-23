@@ -1,38 +1,51 @@
 import { Component, OnInit } from '@angular/core';
 import { Routes, Router, ROUTER_DIRECTIVES } from '@angular/router';
-import { SampleStoreService } from './sample/sampleStore.service'
 import { IndexedDbService } from './storage/indexeddb.service'
+
+import { AlertsComponent } from './alerts/alerts.component'
+import { CustomersComponent } from './customers/customers.component'
 
 @Component({
     moduleId: module.id,
     selector: 'app',
     styleUrls: ['app.component.css'],
     templateUrl: 'app.component.html',
-    directives: [ROUTER_DIRECTIVES],
-    providers: [ IndexedDbService, SampleStoreService ]
+    directives: [ROUTER_DIRECTIVES, AlertsComponent, CustomersComponent],
+    providers: [ IndexedDbService ]
 })
 @Routes([
 ])
 
 export class AppComponent implements OnInit {
-    constructor(private router: Router, private storage: SampleStoreService) { }
+    
+    customers: boolean;
+    alerts: boolean;
+    
+    constructor(private router: Router, private idb:IndexedDbService) {}
 
-    ngOnInit() {}
-    
-    doCreate(){
-        this.storage.create()
+    ngOnInit() {
+        this.customers = false;
+        this.alerts = false;
     }
     
-    doDestroy(){
-        this.storage.destory()
+    doAlerts(){
+        this.alerts = !this.alerts
     }
     
-    doOpen(){
-        this.storage.open()
+    doCustomers(){
+        this.customers = !this.customers
     }
     
-    doClose(){
-        this.storage.close()
+    doDropDb(dbName:string){
+        this.idb.dropDatabase(dbName).subscribe(
+            (result:any) => {
+                alert("Success")
+            },
+            (error:any) => {
+                alert(error)
+            }
+        )
+        // this.idb.hardDrop(dbName)
     }
 
 }
