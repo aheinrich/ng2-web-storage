@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
-import { IndexedDbService, IDBService } from '../storage/indexeddb.service';
+import { IndexedDbService, IIndexedDbService } from '../storage/indexeddb.service';
 
 @Injectable()
-export class CustomerStoreService implements IDBService {
+export class CustomerStoreService implements IIndexedDbService {
 
     dbName = "Customers";
     dbVersion = 1;
