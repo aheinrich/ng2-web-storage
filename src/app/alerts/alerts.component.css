@@ -4,6 +4,8 @@
     
     border: 2px solid red;
     background: indianred;
-    height: 100px;
 }
 
+li {
+    font-variant: small-caps;
+}

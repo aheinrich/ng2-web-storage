@@ -24,8 +24,13 @@ export class CustomerStoreService implements IDBService {
                 this.db = db
             }
         )
+        
     }
     
+    finished(){
+        console.log(this.db)
+        this.db.close()
+    }
     
     
 }

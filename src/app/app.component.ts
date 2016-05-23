@@ -21,6 +21,8 @@ export class AppComponent implements OnInit {
     customers: boolean;
     alerts: boolean;
     
+    dropDbName:string;
+    
     constructor(private router: Router, private idb:IndexedDbService) {}
 
     ngOnInit() {

@@ -5,24 +5,35 @@ import { IndexedDbService, IDBService } from '../storage/indexeddb.service';
 export class AlertsStoreService implements IDBService {
 
     dbName = "Alerts";
-    dbVersion = 1;
+    dbVersion = 4;
     schema = [
-        { "name": "messages" },
+        { "name": "messages", "keyGenerator": { autoIncrement: true } },
+        { "name": "advanced_messages", "keyPath": "id" },
+        { "name": "simple" },
     ]
-    
-    db:IDBDatabase;
 
-    constructor(private idb: IndexedDbService) {
+    db: IDBDatabase;
+
+    constructor(private idbService: IndexedDbService) {
         console.log("Hello world, I am creating the 'Alerts' store database...")
-        this.idb.openDatabase(this.dbName, this.dbVersion, this.schema).subscribe(
-            (db:IDBDatabase) => {
+
+        this.idbService.openDatabase(this.dbName, this.dbVersion, this.schema).subscribe(
+            (db: IDBDatabase) => {
                 console.log("Got a copy of the database....")
                 this.db = db
             }
         )
     }
-    
-    finished(){
+
+    list() {
+        return this.idbService.list(this.db, "messages")
+    }
+
+    insert(record: any) {
+        this.idbService.insert(this.db, "messages", record);
+    }
+
+    finished() {
         console.log(this.db)
         this.db.close()
     }
