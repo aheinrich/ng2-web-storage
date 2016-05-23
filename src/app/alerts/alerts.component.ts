@@ -50,7 +50,7 @@ export class AlertsComponent implements OnInit {
     
     doBatch(size:number){
         let records = Array.apply(null, Array(size)).map((_:any, i:number)=> {
-            return {"message": "Alert #" + i, "value": Math.random()}
+            return {name: "Testing", message: "Alert #" + i, value: Math.random()}
         });
         
         this.storage.batchInsert(records).subscribe()

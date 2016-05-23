@@ -1,14 +1,16 @@
 import { Injectable } from '@angular/core';
-import { IndexedDbService, IDBService } from '../storage/indexeddb.service';
+import { IndexedDbService, IIndexedDbService, ISchemaDeclaration } from '../storage/indexeddb.service';
 import { Observable } from 'rxjs/Rx'
 
 @Injectable()
-export class AlertsStoreService implements IDBService {
+export class AlertsStoreService implements IIndexedDbService {
 
     dbName = "Alerts";
-    dbVersion = 4;
-    schema = [
-        { "name": "messages", "keyGenerator": { autoIncrement: true } },
+    dbVersion = 5;
+    schema:Array<ISchemaDeclaration> = [
+        { "name": "messages", "keyGenerator": { autoIncrement: true }, indexes: [{
+            name: "name", key: "name", optionalParameters: {unique:false}
+        }]},
         { "name": "advanced_messages", "keyPath": "id" },
         { "name": "simple" },
     ]

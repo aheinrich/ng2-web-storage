@@ -1,13 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subscriber, Subject } from 'rxjs/Rx'
 
-interface Datastore {
-    insert(): void;
-    remove(): void;
-    update(): void;
-    query(): void;
-}
-
 type ETransactionMode = "readwrite" | "readonly" | "versionchange"
 
 const IDB_EVENT_UPGRADE = "upgradeneeded"
@@ -19,21 +12,21 @@ const IDB_EVENT_BLOCKED = "blocked"
 const IDB_EVENT_VERSIONCHANGE = "versionchange"
 const IDB_EVENT_CLOSE = "close"
 
-const IDB_EVENTS = [
-    IDB_EVENT_UPGRADE,
-    IDB_EVENT_COMPLETE,
-    IDB_EVENT_ABORT,
-    IDB_EVENT_SUCCESS,
-    IDB_EVENT_ERROR,
-    IDB_EVENT_BLOCKED,
-    IDB_EVENT_VERSIONCHANGE,
-    IDB_EVENT_CLOSE
-]
-
-export interface IDBSchemaDeclaration {
+export interface ISchemaDeclaration {
     name: string,
     keyPath?: string
     keyGenerator?: any
+    indexes?: Array<IIndexParams>
+}
+
+export interface IIndexParams {
+    name: string
+    key: string
+    optionalParameters?: {
+        unique?:boolean,
+        multiEntry?:boolean,
+        locale?:string
+    }
 }
 
 /**
@@ -45,10 +38,10 @@ export interface IDBSchemaDeclaration {
  *   'schema'     - 
  *   'finished'   -  
  */
-export interface IDBService {
+export interface IIndexedDbService {
     dbName:string;
     dbVersion:number;
-    schema: Array<IDBSchemaDeclaration>;
+    schema: Array<ISchemaDeclaration>;
     finished: () => void
 }
 
@@ -104,7 +97,7 @@ export class IndexedDbService {
         })
     }
 
-    openDatabase(databaseName: string, version: number, schema?: Array<IDBSchemaDeclaration>): Observable<any> {
+    openDatabase(databaseName: string, version: number, schema?: Array<ISchemaDeclaration>): Observable<any> {
         return Observable.create((observer: Subscriber<any>) => {
             var openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
             var handleSuccess = (event: Event) => {
@@ -132,8 +125,12 @@ export class IndexedDbService {
         })
     }
 
-    upgradeDatabase(observer: Subscriber<any>, database: IDBDatabase, schema: Array<IDBSchemaDeclaration>) {
-
+    /**
+     * upgradeDatabase()
+     * 
+     * Internal function, called by openDatabase() when an 'upgradeNeeded' event is generated during the open request.
+     */
+    private upgradeDatabase(observer: Subscriber<any>, database: IDBDatabase, schema: Array<ISchemaDeclaration>) {
         schema.forEach(schemaInstance => {
             
             if (database.objectStoreNames.contains(schemaInstance.name)){
@@ -150,6 +147,14 @@ export class IndexedDbService {
                 optionParams = schemaInstance.keyGenerator
             }
             let store: IDBObjectStore = database.createObjectStore(schemaInstance.name, optionParams);
+            
+            if (schemaInstance.indexes){
+                schemaInstance.indexes.forEach((indexDeclaration) => {
+                    store.createIndex(indexDeclaration.name, indexDeclaration.key, indexDeclaration.optionalParameters);
+                })    
+            }
+            
+            
             store.transaction.oncomplete = () => {
                 this.logEvent('updateDatabase', event)
                 observer.next(database)
