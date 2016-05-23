@@ -30,9 +30,9 @@ export class AlertsStoreService implements IDBService {
     }
 
     insert(record: any) {
-        this.idbService.insert(this.db, "messages", record);
+        this.idbService.insert(this.db, "messages", record).subscribe()
     }
-
+    
     finished() {
         console.log(this.db)
         this.db.close()

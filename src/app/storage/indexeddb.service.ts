@@ -179,6 +179,11 @@ export class IndexedDbService {
         }
     }
     
+    /**
+     * logEvent()
+     * 
+     * Push an IndexedDb event to an observer stream
+     */
     logEvent(e:Event){
         this.eventStream.next({
             event: event.target.constructor.name,
@@ -188,6 +193,7 @@ export class IndexedDbService {
     
     
     //////
+      
     
     
     getTransaction(db: IDBDatabase, objectStoreNames: string[] | string, mode: ETransactionMode): IDBTransaction {
@@ -218,18 +224,27 @@ export class IndexedDbService {
     
     //////
     
-    insert(db:IDBDatabase, storeName:string, record:any, key?:number){
-        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
-        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
-        let addRequest: IDBRequest = store.add(record, key);
-
-        addRequest.onsuccess = (event: any) => {
-            console.log("AddRequest success")
-        }
-
-        addRequest.onerror = (event: any) => {
-            console.log("AddRequest error")
-        }
+    insert(db:IDBDatabase, storeName:string, record:any, key?:number):Observable<any>{
+        return Observable.create( (observer:Subscriber<any>) => {
+            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
+            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+            let addRequest: IDBRequest = store.add(record, key);
+            
+            var onSuccess = (e:Event) => {
+                observer.next()
+                observer.complete()
+            }
+            
+            var onError = (e:Event) => {
+                observer.error()
+            }
+            
+            return () => {
+                addRequest.removeEventListener(IDB_EVENT_SUCCESS, onSuccess)
+                addRequest.removeEventListener(IDB_EVENT_ERROR, onError)
+            }
+        })
+        
     }
     
     list(db:IDBDatabase, storeName:string){
