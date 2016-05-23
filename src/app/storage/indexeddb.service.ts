@@ -50,14 +50,17 @@ export interface IIndexedDbService {
 export class IndexedDbService {
 
     eventStream: Subject<any>;
-
+    indexedDB:any;
+    
     constructor() {
         this.eventStream = new Subject()
         this.eventStream.subscribe(
-            (event) => { },
-            (error) => { },
+            (ev) => { },
+            (err) => { },
             () => { }
         )
+        
+        this.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
     }
 
     get events() {
@@ -66,23 +69,23 @@ export class IndexedDbService {
 
     dropDatabase(databaseName: string) {
         return Observable.create( (observer:Subscriber<any>) => {
-            let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
+            let deleteRequest: IDBOpenDBRequest = this.indexedDB.deleteDatabase(databaseName)
             
-            var handleSuccess = (event: Event) => {
-                this.logEvent('dropDatabase', event)
-                if (event.oldVersion > 0){
+            var handleSuccess = (ev: Event) => {
+                this.logEvent('dropDatabase', ev)
+                if (ev.oldVersion > 0){
                     observer.next()
                     observer.complete()    
                 } else {
                     observer.error(`Cannot find requested database '${databaseName}'`)
                 }
             }
-            var handleError = (event: Event) => {
-                this.logEvent('dropDatabase',event)
+            var handleError = (ev: Event) => {
+                this.logEvent('dropDatabase', ev)
                 observer.error(deleteRequest.error)
             }
-            var handleBlocked = (event: Event) => {
-                this.logEvent('dropDatabase',event)
+            var handleBlocked = (ev: Event) => {
+                this.logEvent('dropDatabase', ev)
                 observer.error(`Requested database '${databaseName}' is blocked`)
             }
 
@@ -99,19 +102,18 @@ export class IndexedDbService {
 
     openDatabase(databaseName: string, version: number, schema?: Array<ISchemaDeclaration>): Observable<any> {
         return Observable.create((observer: Subscriber<any>) => {
-            var openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
-            var handleSuccess = (event: Event) => {
-                this.logEvent('openDatabase', event)
-                observer.next(event.target.result)
-                observer.complete()
+            var openRequest: IDBOpenDBRequest = this.indexedDB.open(databaseName, version);
+            var handleSuccess = (ev: Event) => {
+                this.logEvent('openDatabase', ev)
+                this.registerDbListeners(observer, ev.target.result)
             }
-            var handleError = (event: Event) => {
-                this.logEvent('openDatabase', event)
+            var handleError = (ev: Event) => {
+                this.logEvent('openDatabase', ev)
                 observer.error(openRequest.error)
             }
-            var handleUpgrade = (event: Event) => {
-                this.logEvent('openDatabase', event)
-                this.upgradeDatabase(observer, event.target.result, schema)
+            var handleUpgrade = (ev: Event) => {
+                this.logEvent('openDatabase', ev)
+                this.upgradeDatabase(observer, ev.target.result, schema)
             }
 
             openRequest.addEventListener(IDB_EVENT_SUCCESS, handleSuccess)
@@ -155,35 +157,66 @@ export class IndexedDbService {
             }
             
             
-            store.transaction.oncomplete = () => {
-                this.logEvent('updateDatabase', event)
-                observer.next(database)
-                observer.complete()
+            store.transaction.oncomplete = (ev:Event) => {
+                this.logEvent('updateDatabase', ev)
+                this.registerDbListeners(observer, database)
             }
         })
+    }
+    
+    /**
+     * registerDbListeners()
+     * 
+     * ref: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB#Version_changes_while_a_web_app_is_open_in_another_tab
+     * ref: https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore
+     */
+    private registerDbListeners(observer: Subscriber<any>, database: IDBDatabase){
+        
+        // onerror and onabort are listed as part of the definitions...
+        database.onerror = (ev:Event) => {
+            this.logEvent("db", ev)
+        };
+        
+        database.onabort = (ev:Event) => {
+            this.logEvent("db", ev)
+        };
+        
+        // onversionchange and onclose are listed object properties in Chrome
+        database.onversionchange = (ev:Event) => {
+            this.logEvent("db", ev)
+            database.close();
+            observer.error("IndexedDB schema version changed. Reload window is suggested")
+        };
+        
+        database.onclose = (ev:Event) => {
+            this.logEvent("db", ev)
+        };
+
+        observer.next(database)
+        observer.complete()
     }
     
     /**
      * When observables don't do what I expect them to do...
      */
     hardDrop(databaseName: string) {
-        let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
+        let deleteRequest: IDBOpenDBRequest = this.indexedDB.deleteDatabase(databaseName)
         
-        deleteRequest.onsuccess = (e:Event) => {
+        deleteRequest.onsuccess = (ev:Event) => {
             console.log("Success")
-            console.log(e);
+            console.log(ev);
         }
-        deleteRequest.onblocked = (e:Event) => {
+        deleteRequest.onblocked = (ev:Event) => {
             console.log("Blocked")
-            console.log(e);
+            console.log(ev);
         }
-        deleteRequest.onerror = (e:Event) => {
+        deleteRequest.onerror = (ev:Event) => {
             console.log("Error")
-            console.log(e);
+            console.log(ev);
         }
-        deleteRequest.onupgradeneeded = (e:Event) => {
+        deleteRequest.onupgradeneeded = (ev:Event) => {
             console.log("Upgrade Needed")
-            console.log(e);
+            console.log(ev);
         }
     }
     
@@ -192,11 +225,11 @@ export class IndexedDbService {
      * 
      * Push an IndexedDb event to an observer stream
      */
-    logEvent(source:string, e:Event){
+    logEvent(source:string, ev:Event){
         this.eventStream.next({
             source: source,
-            event: event.target.constructor.name,
-            type: event.type
+            event: ev.target.constructor.name,
+            type: ev.type
         })
     }
     
@@ -207,21 +240,19 @@ export class IndexedDbService {
     
     getTransaction(db: IDBDatabase, objectStoreNames: string[] | string, mode: ETransactionMode): IDBTransaction {
         var tnx: IDBTransaction = db.transaction(objectStoreNames, mode)
-        console.log(`Transaction Created`)
-
-        tnx.onabort = (event) => {
-            this.logEvent('transaction', event)
-            console.log(`Transaction aborted`)
+        tnx.onabort = (ev) => {
+            this.logEvent('transaction', ev)
+            // console.log(`Transaction aborted`)
         }
 
-        tnx.onerror = (event) => {
-            this.logEvent('transaction', event)
-            console.log(`Transaction error`)
+        tnx.onerror = (ev) => {
+            this.logEvent('transaction', ev)
+            // console.log(`Transaction error`)
         }
 
-        tnx.oncomplete = (event) => {
-            this.logEvent('transaction', event)
-            console.log(`Transaction complete`)
+        tnx.oncomplete = (ev) => {
+            this.logEvent('transaction', ev)
+            // console.log(`Transaction complete`)
         }
 
         return tnx
@@ -229,8 +260,6 @@ export class IndexedDbService {
     
     getObjectStore(tnx: IDBTransaction, objectStoreName: string): IDBObjectStore {
         var store = tnx.objectStore(objectStoreName)
-        console.log(`ObjectStore Available`)
-
         return store
     }
     
@@ -246,15 +275,15 @@ export class IndexedDbService {
             let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
             let addRequest: IDBRequest = store.add(record, key);
             
-            var onSuccess = (e:Event) => {
-                this.logEvent('insert', event)
+            var onSuccess = (ev:Event) => {
+                this.logEvent('insert', ev)
                 observer.next()
                 observer.complete()
             }
             
-            var onError = (e:Event) => {
-                this.logEvent('insert', event)
-                observer.error(e)
+            var onError = (ev:Event) => {
+                this.logEvent('insert', ev)
+                observer.error(ev)
             }
             
             addRequest.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
@@ -282,14 +311,14 @@ export class IndexedDbService {
             // ToDo - uses 'onsuccess' bindings instead of addEventListener
             const insertRecord = () => {
                 if ( i < recordList.length) {
-                    store.add(recordList[i]).onsuccess = (event) => {
-                        this.logEvent("insertBatch", event)
+                    store.add(recordList[i]).onsuccess = (ev:Event) => {
+                        this.logEvent("insertBatch", ev)
                         observer.next(i)
                         insertRecord()
                     } ;
-                    store.add(recordList[i]).onerror = (event) => {
-                        this.logEvent("insertBatch", event)
-                        observer.error(event)
+                    store.add(recordList[i]).onerror = (ev:Event) => {
+                        this.logEvent("insertBatch", ev)
+                        observer.error(ev)
                     } ;                    
                     ++i
                 } else {
@@ -311,9 +340,9 @@ export class IndexedDbService {
 
             let cursor: IDBRequest = store.openCursor()
 
-            var onSuccess = (e:Event) => {
-                this.logEvent('listCursor', event)
-                let iterator: IDBCursorWithValue = event.target.result;
+            var onSuccess = (ev:Event) => {
+                this.logEvent('listCursor', ev)
+                let iterator: IDBCursorWithValue = ev.target.result;
                 if (iterator) {
                     observer.next(iterator.value);
                     iterator.continue();
@@ -322,9 +351,9 @@ export class IndexedDbService {
                 }
             }
             
-            var onError = (e:Event) => {
-                this.logEvent('listCursor', event)
-                observer.error(e)
+            var onError = (ev:Event) => {
+                this.logEvent('listCursor', ev)
+                observer.error(ev)
             }
             
             cursor.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
