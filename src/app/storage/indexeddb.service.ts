@@ -232,6 +232,7 @@ export class IndexedDbService {
     //////
     
     /**
+     * insert()
      * 
      */
     insert(db:IDBDatabase, storeName:string, record:any, key?:number):Observable<any>{
@@ -262,6 +263,40 @@ export class IndexedDbService {
     }
     
     /**
+     * batchInsert()
+     * 
+     */
+    insertBatch(db:IDBDatabase, storeName:string, recordList:Array<any>, keyList?:Array<number>){
+        return Observable.create( (observer:Subscriber<any>) => {
+            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
+            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+            
+            let i = 0
+            
+            // ToDo - Fix this; recurrive function; preference to using iterator
+            // ToDo - uses 'onsuccess' bindings instead of addEventListener
+            const insertRecord = () => {
+                if ( i < recordList.length) {
+                    store.add(recordList[i]).onsuccess = (event) => {
+                        this.logEvent("insertBatch", event)
+                        observer.next(i)
+                        insertRecord()
+                    } ;
+                    store.add(recordList[i]).onerror = (event) => {
+                        this.logEvent("insertBatch", event)
+                        observer.error(event)
+                    } ;                    
+                    ++i
+                } else {
+                    observer.complete()
+                }
+            }
+            insertRecord(); 
+        })
+    }
+    
+    /**
+     * list()
      * 
      */
     list(db:IDBDatabase, storeName:string){
@@ -298,6 +333,6 @@ export class IndexedDbService {
         })
         
     }
-
+    
 
 }
