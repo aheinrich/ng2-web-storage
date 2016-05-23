@@ -55,7 +55,8 @@ export class AlertsStoreService implements IDBService {
     /**
      * list()
      * 
-     * calls IdbService.list() observable, providing the database reference and objectstore name that it would like to list
+     * calls IdbService.list() observable; providing the database reference and objectstore name that it would like to list. Mergemap 
+     * operation against the observable to pullout the IDB reference, and that's all she wrote
      */
     list() {
         return Observable.fromPromise(this.database).mergeMap(
@@ -68,6 +69,7 @@ export class AlertsStoreService implements IDBService {
     /**
      * insert()
      * 
+     * calls IdbService.insert() observable;
      */
     insert(record: any) {
         record.dateAdded = new Date().getTime() / 1000
@@ -75,6 +77,24 @@ export class AlertsStoreService implements IDBService {
         return Observable.fromPromise(this.database).mergeMap(
             (database) => {
                 return this.idbService.insert(database, "messages", record)
+            }
+        )
+
+    }
+    
+    /**
+     * batchInsert()
+     * 
+     * calls IdbService.insert() observable;
+     */
+    batchInsert(recordList:Array<any>) {
+        recordList.forEach(record => {
+            record.dateAdded = new Date().getTime() / 1000
+        })
+        
+        return Observable.fromPromise(this.database).mergeMap(
+            (database) => {
+                return this.idbService.insertBatch(database, "messages", recordList)
             }
         )
 
