@@ -14,8 +14,9 @@ import { ALERT_DIRECTIVES } from './index'
 
         <button (click)="doList()">List</button>
         <button (click)="doDetails()">Add</button>
-        
-        <alert-list *ngIf="!showDetails" [messages]="alertList" ></alert-list>
+        <button (click)="doBatch(100)">* Insert Batch 100</button>
+
+        <alert-list *ngIf="!showDetails" [messages]="list" ></alert-list>
         <alert-details *ngIf="showDetails" (messages)="addMessage($event);" ></alert-details>
     </div>
     
@@ -25,12 +26,14 @@ export class AlertsComponent implements OnInit {
     
     alertList:Array<any>;
     showDetails:boolean;
+    showList:boolean;
     
     constructor(private storage:AlertsStoreService) { }
 
     ngOnInit() {
         console.log("Hello World, I am Alert!")
         this.showDetails = false;
+        this.showList = false;
         this.doList()
     }
 
@@ -45,6 +48,14 @@ export class AlertsComponent implements OnInit {
         this.showDetails = !this.showDetails
     }
     
+    doBatch(size:number){
+        let records = Array.apply(null, Array(size)).map((_:any, i:number)=> {
+            return {"message": "Alert #" + i, "value": Math.random()}
+        });
+        
+        this.storage.batchInsert(records).subscribe()
+    }
+        
     addMessage(ev:{msg:string}) {
         this.storage.insert({
             message:ev.msg
@@ -57,10 +68,13 @@ export class AlertsComponent implements OnInit {
         this.alertList = []
         this.storage.list().subscribe(
             (res:any) => {
-                console.log(res)
                 this.alertList.push(res)
             }
         )
+    }
+    
+    get list(){
+        return this.alertList.slice(0, 10)
     }
     
 }
