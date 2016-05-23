@@ -36,10 +36,20 @@ export interface IDBSchemaDeclaration {
     keyGenerator?: any
 }
 
+/**
+ * All classes that want to use the IndexedDB storage service should implement this interface. It 
+ * ensures the proper parameters are met
+ * 
+ *   'dbName'     - 
+ *   'dbVersion'  - 
+ *   'schema'     - 
+ *   'finished'   -  
+ */
 export interface IDBService {
     dbName:string;
     dbVersion:number;
     schema: Array<IDBSchemaDeclaration>;
+    finished: () => void
 }
 
 
@@ -67,6 +77,7 @@ export class IndexedDbService {
             let deleteRequest: IDBOpenDBRequest = window.indexedDB.deleteDatabase(databaseName)
             
             var handleSuccess = (event: Event) => {
+                this.logEvent(event)
                 if (event.oldVersion > 0){
                     observer.next()
                     observer.complete()    
@@ -75,9 +86,11 @@ export class IndexedDbService {
                 }
             }
             var handleError = (event: Event) => {
+                this.logEvent(event)
                 observer.error(deleteRequest.error)
             }
             var handleBlocked = (event: Event) => {
+                this.logEvent(event)
                 observer.error(`Requested database '${databaseName}' is blocked`)
             }
 
@@ -96,12 +109,15 @@ export class IndexedDbService {
         return Observable.create((observer: Subscriber<any>) => {
             var openRequest: IDBOpenDBRequest = window.indexedDB.open(databaseName, version);
             var handleSuccess = (event: Event) => {
+                this.logEvent(event)
                 observer.next(event.target.result)
             }
             var handleError = (event: Event) => {
+                this.logEvent(event)
                 observer.error(openRequest.error)
             }
             var handleUpgrade = (event: Event) => {
+                this.logEvent(event)
                 this.upgradeDatabase(observer, event.target.result, schema)
             }
 
@@ -119,6 +135,11 @@ export class IndexedDbService {
     upgradeDatabase(observer: Subscriber<any>, database: IDBDatabase, schema: Array<IDBSchemaDeclaration>) {
 
         schema.forEach(schemaInstance => {
+            
+            if (database.objectStoreNames.contains(schemaInstance.name)){
+                database.deleteObjectStore(schemaInstance.name)
+            }
+            
             let optionParams: IDBObjectStoreParameters = {}
 
             if (schemaInstance.keyPath) {
@@ -126,7 +147,7 @@ export class IndexedDbService {
             }
 
             if (schemaInstance.keyGenerator) {
-                optionParams['keyGenerator'] = schemaInstance.keyGenerator
+                optionParams = schemaInstance.keyGenerator
             }
             let store: IDBObjectStore = database.createObjectStore(schemaInstance.name, optionParams);
         })
@@ -156,6 +177,84 @@ export class IndexedDbService {
             console.log("Upgrade Needed")
             console.log(e);
         }
+    }
+    
+    logEvent(e:Event){
+        this.eventStream.next({
+            event: event.target.constructor.name,
+            type: event.type
+        })
+    }
+    
+    
+    //////
+    
+    
+    getTransaction(db: IDBDatabase, objectStoreNames: string[] | string, mode: ETransactionMode): IDBTransaction {
+        var tnx: IDBTransaction = db.transaction(objectStoreNames, mode)
+        console.log(`Transaction Created`)
+
+        tnx.onabort = (event) => {
+            console.log(`Transaction aborted`)
+        }
+
+        tnx.onerror = (event) => {
+            console.log(`Transaction error`)
+        }
+
+        tnx.oncomplete = (event) => {
+            console.log(`Transaction complete`)
+        }
+
+        return tnx
+    }
+    
+    getObjectStore(tnx: IDBTransaction, objectStoreName: string): IDBObjectStore {
+        var store = tnx.objectStore(objectStoreName)
+        console.log(`ObjectStore Available`)
+
+        return store
+    }
+    
+    //////
+    
+    insert(db:IDBDatabase, storeName:string, record:any, key?:number){
+        let tnx: IDBTransaction = this.getTransaction(db, storeName, "readwrite")
+        let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+        let addRequest: IDBRequest = store.add(record, key);
+
+        addRequest.onsuccess = (event: any) => {
+            console.log("AddRequest success")
+        }
+
+        addRequest.onerror = (event: any) => {
+            console.log("AddRequest error")
+        }
+    }
+    
+    list(db:IDBDatabase, storeName:string){
+        return Observable.create( (observer:Subscriber<any>) => {
+            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readonly")
+            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+
+            let cursor: IDBRequest = store.openCursor()
+
+            cursor.onsuccess = (event: any) => {
+
+                let iterator: IDBCursorWithValue = event.target.result;
+                if (iterator) {
+                    observer.next(iterator.value);
+                    iterator.continue();
+                } else {
+                    observer.complete()
+                }
+            }
+
+            cursor.onerror = (event: any) => {
+                observer.error(event)
+            }    
+        })
+        
     }
 
 
