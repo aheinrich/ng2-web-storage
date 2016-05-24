@@ -1,7 +1,7 @@
 module.exports = function (config) {
     config.set({
         
-        basePath: '',
+        basePath: '..',
         
         frameworks: ['jasmine'],
         
@@ -25,7 +25,7 @@ module.exports = function (config) {
             { pattern: 'node_modules/rxjs/**/*.js.map', included: false, watched: false },
             
             // Karma Shim?
-            { pattern: 'karma-test-shim.js', included: true, watched: true },
+            { pattern: 'config/karma-test-shim.js', included: true, watched: true },
 
             // paths loaded via module imports
             
@@ -34,16 +34,16 @@ module.exports = function (config) {
             {pattern: 'node_modules/@angular/**/*.js.map', included: false, watched: true},
             
             // Our built application code
-            {pattern: 'src/**/*.js', included: false, watched: true},
-            {pattern: 'src/**/*.html', included: false, watched: true},
-            {pattern: 'src/**/*.css', included: false, watched: true},
+            {pattern: 'build/**/*.js', included: false, watched: true},
+            {pattern: 'build/**/*.html', included: false, watched: true},
+            {pattern: 'build/**/*.css', included: false, watched: true},
             
         ],
         
         // proxied base paths
         // required for component assests fetched by Angular's compiler
         proxies: {
-            "/app/": "/base/src/app/",
+            "/app/": "/base/build/app/",
             "/node_modules/": "/base/node_modules/"
         },
         
