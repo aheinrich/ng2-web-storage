@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { IndexedDbService, IIndexedDbService, ISchemaDeclaration } from '../storage/indexeddb.service';
 import { Observable } from 'rxjs/Rx'
+
+import { IndexedDbService, IIndexedDbService, ISchemaDeclaration } from '../storage/indexeddb.service';
 
 @Injectable()
 export class AlertsStoreService implements IIndexedDbService {
