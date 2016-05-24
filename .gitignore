@@ -14,27 +14,20 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 
-<<<<<<< HEAD
-=======
-# Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
-.grunt
-
 # node-waf configuration
 .lock-wscript
 
->>>>>>> 86f2e6451276d3980ee93cb07c42a169925ccb37
-# Compiled binary addons (http://nodejs.org/api/addons.html)
-build/Release
-
 # Dependency directory
 node_modules
+
+# Compiled source
+build
 
 # Optional npm cache directory
 .npm
 
 # Optional REPL history
 .node_repl_history
-<<<<<<< HEAD
 
 # Typescript-generated source
 src/app/**/*.js
@@ -42,5 +35,3 @@ src/app/**/*.js
 # Typescript typings
 typings/**/*
 !typings/typings.d.ts
-=======
->>>>>>> 86f2e6451276d3980ee93cb07c42a169925ccb37
