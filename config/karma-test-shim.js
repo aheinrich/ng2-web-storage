@@ -14,13 +14,18 @@ function isSpecFile(path) {
     return path.slice(-7) == 'spec.js';
 }
 
+function isBuiltFile(path) {
+    var builtPath = '/base/built/';
+    return isJsFile(path) && (path.substr(0, builtPath.length) == builtPath);
+}
+
 var allSpecFiles = Object.keys(window.__karma__.files)
-    .filter(isSpecFile);
+    .filter(isSpecFile);    
 
 System.config({
-        //baseURL: 'base'
+        baseURL: '/base',
         map: {
-            'app':       'app',
+            'app':       'build',
             'rxjs':      'node_modules/rxjs',
             '@angular':  'node_modules/@angular',
             

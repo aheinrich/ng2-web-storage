@@ -15,6 +15,20 @@ describe('IndexedDbService', () => {
     it('has name', () => {
         expect(true).toEqual(true);
     });
+    
+    it('has event stream', () => {
+        expect(service.events).toBeDefined();
+    });
+    
+    it('has indexeddb reference', () => {
+        expect(service.indexedDB).toBeDefined();
+    });
+    
+    it('can open a database reference', () => {
+        service.openDatabase("test", 1).subscribe(db => {
+            expect(db).toBeDefined();
+        })
+    });
 
     
     
