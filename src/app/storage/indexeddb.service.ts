@@ -45,7 +45,9 @@ export interface IIndexedDbService {
     finished: () => void
 }
 
-
+/**
+ * 
+ */
 @Injectable()
 export class IndexedDbService {
 
@@ -311,15 +313,25 @@ export class IndexedDbService {
             // ToDo - uses 'onsuccess' bindings instead of addEventListener
             const insertRecord = () => {
                 if ( i < recordList.length) {
-                    store.add(recordList[i]).onsuccess = (ev:Event) => {
+                    
+                    let request:IDBRequest;
+                    
+                    if (keyList) {
+                        request = store.add(recordList[i], keyList[i])
+                    } else {
+                        request = store.add(recordList[i])
+                    }
+                    
+                    request.onsuccess = (ev:Event) => {
                         this.logEvent("insertBatch", ev)
                         observer.next(i)
                         insertRecord()
-                    } ;
-                    store.add(recordList[i]).onerror = (ev:Event) => {
+                    };
+
+                    request.onerror = (ev:Event) => {
                         this.logEvent("insertBatch", ev)
                         observer.error(ev)
-                    } ;                    
+                    };                    
                     ++i
                 } else {
                     observer.complete()
@@ -365,6 +377,13 @@ export class IndexedDbService {
             }
                 
         })
+        
+    }
+    
+    /**
+     * 
+     */
+    get(db:IDBDatabase, storeName:string, key:string){
         
     }
     
