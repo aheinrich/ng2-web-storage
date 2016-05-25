@@ -416,8 +416,42 @@ export class IndexedDbService {
     /**
      * 
      */
-    get(db:IDBDatabase, storeName:string, key:string){
-        
+    fetch(db:IDBDatabase, storeName:string, key:string, value:string){
+        return Observable.create( (observer:Subscriber<any>) => {
+            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readonly")
+            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+            let index: IDBIndex = store.index(key)
+            
+            var boundKeyRange = IDBKeyRange.bound(value,  value + 'uffff', false, false);
+            
+            let cursor: IDBRequest = index.openCursor(boundKeyRange)
+            
+            
+            let onSuccess = (ev:Event) => {
+                this.logEvent('queryCursor', ev)
+                let iterator: IDBCursorWithValue = ev.target.result;
+                if (iterator) {
+                    observer.next(iterator.value);
+                    iterator.continue();
+                } else {
+                    observer.complete()
+                }
+            }
+            
+            let onError = (ev:Event) => {
+                this.logEvent("queryCursor", ev)
+                observer.error(ev.target.error)
+            }
+            
+            cursor.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
+            cursor.addEventListener(IDB_EVENT_ERROR, onError)
+            
+            return () => {
+                cursor.removeEventListener(IDB_EVENT_SUCCESS, onSuccess)
+                cursor.removeEventListener(IDB_EVENT_ERROR, onError)
+            }
+                
+        })
     }
     
 
