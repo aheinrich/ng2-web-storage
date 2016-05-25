@@ -84,7 +84,7 @@ export class IndexedDbService {
             }
             var handleError = (ev: Event) => {
                 this.logEvent('dropDatabase', ev)
-                observer.error(deleteRequest.error)
+                observer.error(ev.target.error)
             }
             var handleBlocked = (ev: Event) => {
                 this.logEvent('dropDatabase', ev)
@@ -111,7 +111,7 @@ export class IndexedDbService {
             }
             var handleError = (ev: Event) => {
                 this.logEvent('openDatabase', ev)
-                observer.error(openRequest.error)
+                observer.error(ev.target.error)
             }
             var handleUpgrade = (ev: Event) => {
                 this.logEvent('openDatabase', ev)
@@ -285,7 +285,7 @@ export class IndexedDbService {
             
             var onError = (ev:Event) => {
                 this.logEvent('insert', ev)
-                observer.error(ev)
+                observer.error(ev.target.error)
             }
             
             addRequest.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
@@ -330,7 +330,7 @@ export class IndexedDbService {
 
                     request.onerror = (ev:Event) => {
                         this.logEvent("insertBatch", ev)
-                        observer.error(ev)
+                        observer.error(ev.target.error)
                     };                    
                     ++i
                 } else {
@@ -351,6 +351,8 @@ export class IndexedDbService {
             let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
 
             let cursor: IDBRequest = store.openCursor()
+            
+            
 
             var onSuccess = (ev:Event) => {
                 this.logEvent('listCursor', ev)
@@ -365,7 +367,7 @@ export class IndexedDbService {
             
             var onError = (ev:Event) => {
                 this.logEvent('listCursor', ev)
-                observer.error(ev)
+                observer.error(ev.target.error)
             }
             
             cursor.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
@@ -377,7 +379,38 @@ export class IndexedDbService {
             }
                 
         })
-        
+    }
+    
+    /**
+     * 
+     */
+    count(db:IDBDatabase, storeName:string){
+        return Observable.create( (observer:Subscriber<any>) => {
+            let tnx: IDBTransaction = this.getTransaction(db, storeName, "readonly")
+            let store: IDBObjectStore = this.getObjectStore(tnx, storeName)
+
+            let countRequest: IDBRequest = store.count()
+            
+            let onSuccess = (ev:Event) => {
+                this.logEvent("count", ev)
+                observer.next(ev.target.result);
+                observer.complete()
+            }
+            
+            let onError = (ev:Event) => {
+                this.logEvent("count", ev)
+                observer.error(ev.target.error)
+            }
+            
+            countRequest.addEventListener(IDB_EVENT_SUCCESS, onSuccess)
+            countRequest.addEventListener(IDB_EVENT_ERROR, onError)
+            
+            return () => {
+                countRequest.removeEventListener(IDB_EVENT_SUCCESS, onSuccess)
+                countRequest.removeEventListener(IDB_EVENT_ERROR, onError)
+            }
+                
+        })
     }
     
     /**
