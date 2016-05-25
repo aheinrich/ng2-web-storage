@@ -9,19 +9,29 @@ import { ICustomer, ICustomerOrder, ICustomerShipment } from './customers.model'
 export class CustomerStoreService implements IIndexedDbService {
 
     dbName = "Customers";
-    dbVersion = 2;
+    dbVersion = 3;
     schema:Array<ISchemaDeclaration> = [
-        { "name": "customers", indexes: [
-            {name:"name", key:"name"},
-            {name:"email", key:"email"}
-        ]},
-        { "name": "customers-orders", "keyPath": "id" },
-        { "name": "customers-shipments", "keyGenerator": { autoIncrement: true }, indexes: [
-            {name:"name", key:"name"},
-            {name:"po", key:"po"},
-            {name:"date", key:"shipDate"},
-        ]},
-        { "name": "customers-carts", "keyPath": "id", "keyGenerator": { autoIncrement: true } },
+        { 
+            name: "customers", 
+            indexes: [
+                {name:"name", key:"name"},
+                {name:"email", key:"email"}
+            ]
+        },
+        {
+            name: "customers-orders", 
+            keyGenerator: { autoIncrement: true }
+        },
+        {
+            name: "customers-shipments", 
+            keyGenerator: { autoIncrement: true }, 
+            indexes: [
+                {name:"name", key:"name"},
+                {name:"po", key:"po"},
+                {name:"date", key:"shipDate"},
+            ]
+        },
+        // { "name": "customers-carts", "keyPath": "id", "keyGenerator": { autoIncrement: true } },
     ]
     
     _db:IDBDatabase;
@@ -45,37 +55,55 @@ export class CustomerStoreService implements IIndexedDbService {
         }
     }
     
-    generate(){
+    generate(model:string){
         
-        // Customers
-        let keys:any = []
-        let customerList:Array<ICustomer> = Array.apply(null, Array(100)).map((_:any, i:number)=> {
-            keys.push(i)
-            return {id: i, name: "Testing", address: "12345 Fake St", phone: "1234567890"}
-        });
-
-        Observable.fromPromise(this.database).mergeMap(
-            (database) => {
-                return this.idbService.insertBatch(database, "customers", customerList, keys)
-            }
-        ).subscribe();
+        let keys:Array<any>
+        let generator:Observable<any>
         
-        // Orders
-        let orderList:Array<ICustomerOrder> = Array.apply(null, Array(50)).map((_:any, i:number)=> {
-            keys.push(i)
-            return {
-                id: i, 
-                customerId: 0, 
-                dateOrdered: new Date().getTime(), 
-                items: [1,2,3,4,5]
-            }
-        });
-        Observable.fromPromise(this.database).mergeMap(
-            (database) => {
-                return this.idbService.insertBatch(database, "customers-orders", orderList)
-            }
-        ).subscribe();
+        if ("customers" == model.toLowerCase()) {
+            keys = []
+            let customerList:Array<ICustomer> = Array.apply(null, Array(100)).map((_:any, i:number)=> {
+                keys.push(i)
+                return {
+                    id: i, 
+                    name: faker.name.findName(), 
+                    address: faker.address.streetName(), 
+                    phone: faker.phone.phoneNumberFormat() 
+                }
+            });
+            
+            generator = Observable.fromPromise(this.database).mergeMap(
+                (database) => {
+                    return this.idbService.insertBatch(database, "customers", customerList, keys)
+                }
+            )
+        }
         
+        if ("orders" == model.toLowerCase()) {
+            let orderList:Array<ICustomerOrder> = Array.apply(null, Array(100)).map((_:any, i:number)=> {
+                return {
+                    id: faker.random.uuid(), 
+                    customerId: 0, 
+                    dateOrdered: new Date().getTime(), 
+                    items: [1,2,3,4,5]
+                }
+            });
+            
+            generator = Observable.fromPromise(this.database).mergeMap(
+                (database) => {
+                    return this.idbService.insertBatch(database, "customers-orders", orderList)
+                }
+            )
+        }
+        
+        if ("shipments" == model.toLowerCase()) {
+            
+        }
+        
+        // Execute
+        if(generator){
+            generator.subscribe();    
+        }
     }
     
     
@@ -87,19 +115,26 @@ export class CustomerStoreService implements IIndexedDbService {
     }
 
     listOrders() {
-        return this.list("customers-orders").filter( (record:ICustomerOrder) => {
-            return record.id < 10
-        } ).toArray()
+        return this.list("customers-orders").take(10).toArray()
     }
     
     listShipments() {
         return this.list("customers-shipments")
     }
     
+    
     list(storeName:string) {
         return Observable.fromPromise(this.database).mergeMap(
             (database) => {
                 return this.idbService.list(database, storeName)
+            }
+        )
+    }
+    
+    count(storeName:string) {
+        return Observable.fromPromise(this.database).mergeMap(
+            (database) => {
+                return this.idbService.count(database, storeName)
             }
         )
     }

@@ -28,9 +28,9 @@ export class AppComponent implements OnInit {
     ngOnInit() {
         this.customers = false;
         this.alerts = false;
-        this.idb.events.subscribe( e => {
-            this.events.push(e)
-        })
+        // this.idb.events.subscribe( e => {
+        //     this.events.push(e)
+        // })
     }
     
     doAlerts(){

@@ -14,11 +14,10 @@ import { Observable } from 'rxjs/Rx'
         
         <p> (You can try, but....) You cannot delete my IndexedDB while I am still alive...</p>
 
-        <button (click)="doGenerate()">Generate Data</button>
-        
         <div class="grid">
         
             <div class="card">
+                <button (click)="doGenerate('customers')">Generate Data</button>
                 <h2>Customers</h2>
                 <p>Uses basic IndexedDb w/ self-provided keys</p>
                 <button (click)="doListCustomers()">List</button>
@@ -31,8 +30,10 @@ import { Observable } from 'rxjs/Rx'
             </div>
             
             <div class="card">
+                <button (click)="doGenerate('orders')">Generate Data</button>
                 <h2>Orders</h2>
                 <p>Uses IndexedDb w/ auto-generated key</p>
+                <p># of records: {{ count }} </p>
                 <button (click)="doListOrders()">List</button>
                 <ul>
                     <li *ngFor="let o of orders | async ">
@@ -42,6 +43,7 @@ import { Observable } from 'rxjs/Rx'
             </div>
             
             <div class="card">
+                <button (click)="doGenerate('shipments')">Generate Data</button>
                 <h2>Shipments</h2>
                 <button (click)="doListShipments()">List</button>
                 {{ shipments | async | json }}
@@ -56,7 +58,10 @@ export class CustomersComponent implements OnInit {
     orders:Observable<any>
     shipments:Observable<any>
     
-    constructor(private storage:CustomerStoreService) { }
+    count:Observable<any>
+    
+    constructor(private storage:CustomerStoreService) {
+    }
 
     ngOnInit() {
         console.log("Hello World, I am Customers!")
@@ -68,14 +73,20 @@ export class CustomersComponent implements OnInit {
     
     doListOrders() {
         this.orders = this.storage.listOrders()
+        
+        this.storage.count("customers-orders").subscribe(res => {
+            this.count = res;    
+        }, err => {
+            console.log(err)
+        })
     }
     
     doListShipments() {
        this.shipments = this.storage.listShipments()
     }
     
-    doGenerate(){
-        this.storage.generate()
+    doGenerate(model:string){
+        this.storage.generate(model)
     }
 
 }
