@@ -20,7 +20,10 @@ export class CustomerStoreService implements IIndexedDbService {
         },
         {
             name: "customers-orders", 
-            keyGenerator: { autoIncrement: true }
+            keyGenerator: { autoIncrement: true },
+            indexes: [
+                {name:"name", key:"name"}
+            ]
         },
         {
             name: "customers-shipments", 
@@ -67,6 +70,7 @@ export class CustomerStoreService implements IIndexedDbService {
                 return {
                     id: i, 
                     name: faker.name.findName(), 
+                    email: faker.internet.email(), 
                     address: faker.address.streetName(), 
                     phone: faker.phone.phoneNumberFormat() 
                 }
@@ -83,7 +87,7 @@ export class CustomerStoreService implements IIndexedDbService {
             let orderList:Array<ICustomerOrder> = Array.apply(null, Array(100)).map((_:any, i:number)=> {
                 return {
                     id: faker.random.uuid(), 
-                    customerId: 0, 
+                    name: faker.commerce.productName(), 
                     dateOrdered: new Date().getTime(), 
                     items: [1,2,3,4,5]
                 }
@@ -138,6 +142,14 @@ export class CustomerStoreService implements IIndexedDbService {
             }
         )
     }
+    
+     search(storeName:string, params:{key:string, value:string}){
+         return Observable.fromPromise(this.database).mergeMap(
+            (database) => {
+                return this.idbService.fetch(database, storeName, params.key, params.value)
+            }
+        ).toArray()
+     }
     
     finished(){
         console.log(this._db)

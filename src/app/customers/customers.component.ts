@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CustomerStoreService } from './customer-store.service'
+import { OrderBy } from "../storage/order-by.pipe"
 
 import { Observable } from 'rxjs/Rx'
 
@@ -8,6 +9,7 @@ import { Observable } from 'rxjs/Rx'
     selector: 'customers',
     styleUrls: ['customers.component.css'],
     providers: [ CustomerStoreService ],
+    pipes: [ OrderBy ],
     template: `
     <div class="customers">
         <p>I am Customers! I have my own <b>IndexedDB</b> database. As long as I am running, my associated storage service has a reference to my own database.</p>
@@ -31,13 +33,15 @@ import { Observable } from 'rxjs/Rx'
             
             <div class="card">
                 <button (click)="doGenerate('orders')">Generate Data</button>
+                <input type="text" [(ngModel)]="searchCriteria" (keypress)="doInput($event)"/>
+                
                 <h2>Orders</h2>
                 <p>Uses IndexedDb w/ auto-generated key</p>
                 <p># of records: {{ count }} </p>
                 <button (click)="doListOrders()">List</button>
                 <ul>
-                    <li *ngFor="let o of orders | async ">
-                        {{ o.dateOrdered | date }} : Customer #{{ o.id }} - {{ o.items | json }}
+                    <li *ngFor="let o of orders | async | orderBy ">
+                        {{ o | json }}
                     </li>
                 </ul>
             </div>
@@ -59,6 +63,7 @@ export class CustomersComponent implements OnInit {
     shipments:Observable<any>
     
     count:Observable<any>
+    searchCriteria:string;
     
     constructor(private storage:CustomerStoreService) {
     }
@@ -87,6 +92,12 @@ export class CustomersComponent implements OnInit {
     
     doGenerate(model:string){
         this.storage.generate(model)
+    }
+    
+    doInput(event:any){
+        if (event.keyCode == 13){
+            this.orders = this.storage.search("customers-orders", {key: "name", value: this.searchCriteria})
+        }
     }
 
 }

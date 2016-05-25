@@ -22,3 +22,7 @@ button {
   margin: 8px;
   padding: 16px
 }
+
+input {
+    padding: 8px;
+}
